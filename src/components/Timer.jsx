@@ -166,6 +166,12 @@ const Timer = () => {
     }${secs}s`;
   };
 
+  const formatTimeForTotals = (seconds) => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    return `${hrs > 0 ? `${hrs}h ` : ""}${mins}m`;
+  };
+
   return (
     <div
       className="flex flex-col p-6 overflow-y-auto"
@@ -213,7 +219,7 @@ const Timer = () => {
         <div className="flex justify-between text-sm">
           <div className="text-center">
             <p className="text-gray-500">Today</p>
-            <p className="font-medium">{formatTime(dailyTotal)}</p>
+            <p className="font-medium">{formatTimeForTotals(dailyTotal)}</p>
           </div>
           <div className="text-center">
             <p className="text-gray-500">Sessions</p>
@@ -221,7 +227,7 @@ const Timer = () => {
           </div>
           <div className="text-center">
             <p className="text-gray-500">Week</p>
-            <p className="font-medium">{formatTime(weeklyTotal)}</p>
+            <p className="font-medium">{formatTimeForTotals(weeklyTotal)}</p>
           </div>
         </div>
       </div>
