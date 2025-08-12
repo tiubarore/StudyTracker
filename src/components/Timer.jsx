@@ -84,7 +84,10 @@ const Timer = () => {
   };
 
   return (
-    <div className="h-screen flex flex-col p-6">
+    <div
+      className="flex flex-col p-6 overflow-y-auto"
+      style={{ height: "calc(var(--app-height, 100vh) - 1px)" }}
+    >
       <div className="mb-8">
         <h3 className="text-lg font-medium mb-3 text-gray-700 text-center">
           Study Duration
