@@ -4,7 +4,8 @@ import TimerControls from "./TimerControls";
 
 const Timer = () => {
   const timerRef = useRef(null);
-  const [time, setTime] = useState(0);
+  const [startTime, setStartTime] = useState(null);
+  const [accumulatedTime, setAccumulatedTime] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const [targetTime, setTargetTime] = useState(0);
   const [sessionComplete, setSessionComplete] = useState(false);
@@ -25,6 +26,14 @@ const Timer = () => {
     { minutes: 60, label: "1 hour" },
   ];
 
+  // Calculate current time accurately
+  const getCurrentTime = () => {
+    if (!isRunning || !startTime) return accumulatedTime;
+    return accumulatedTime + Math.floor((Date.now() - startTime) / 1000);
+  };
+
+  const currentTime = getCurrentTime();
+
   useEffect(() => {
     localStorage.setItem("dailyTotal", dailyTotal);
     localStorage.setItem("weeklyTotal", weeklyTotal);
@@ -32,30 +41,32 @@ const Timer = () => {
   }, [dailyTotal, weeklyTotal, sessionsCompleted]);
 
   useEffect(() => {
-    if (targetTime > 0 && time >= targetTime) {
+    if (targetTime > 0 && currentTime >= targetTime) {
       clearInterval(timerRef.current);
       setIsRunning(false);
       setSessionComplete(true);
-      const newDailyTotal = dailyTotal + time;
-      const newWeeklyTotal = weeklyTotal + time;
+      const newDailyTotal = dailyTotal + currentTime;
+      const newWeeklyTotal = weeklyTotal + currentTime;
       setDailyTotal(newDailyTotal);
       setWeeklyTotal(newWeeklyTotal);
       setSessionsCompleted((prev) => prev + 1);
     }
-  }, [time, targetTime]);
+  }, [currentTime, targetTime]);
 
   const toggleTimer = () => {
     if (isRunning) {
+      // Pause logic
       clearInterval(timerRef.current);
-      timerRef.current = null;
+      setAccumulatedTime(currentTime);
+      setStartTime(null);
     } else {
-      if (sessionComplete) {
-        setTime(0);
-        setSessionComplete(false);
-      }
+      // Start logic
+      setStartTime(Date.now());
+      // Secondary interval for UI updates (can be slower)
       timerRef.current = setInterval(() => {
-        setTime((prevTime) => prevTime + 1);
-      }, 1000);
+        // Force re-render to update display
+        setAccumulatedTime((prev) => prev); // This triggers an update
+      }, 250);
     }
     setIsRunning(!isRunning);
   };
@@ -63,7 +74,8 @@ const Timer = () => {
   const resetTimer = () => {
     clearInterval(timerRef.current);
     setIsRunning(false);
-    setTime(0);
+    setAccumulatedTime(0);
+    setStartTime(null);
     setTargetTime(0);
     setSessionComplete(false);
     timerRef.current = null;
@@ -83,29 +95,46 @@ const Timer = () => {
     }${secs}s`;
   };
 
-  // Add to Timer.jsx
+  // Wake Lock API to prevent sleep
   useEffect(() => {
-    let wakeLock = null;
-
+    let wakeLock;
     const requestWakeLock = async () => {
       try {
         if ("wakeLock" in navigator) {
           wakeLock = await navigator.wakeLock.request("screen");
-          console.log("Wake Lock active");
         }
       } catch (err) {
-        console.log("Wake Lock error:", err);
+        console.error("Wake Lock error:", err);
       }
     };
 
-    if (isRunning) {
-      requestWakeLock();
-    }
-
+    if (isRunning) requestWakeLock();
     return () => {
       if (wakeLock) wakeLock.release();
     };
   }, [isRunning]);
+
+  // Handle tab visibility changes
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden" && isRunning) {
+        setAccumulatedTime(getCurrentTime());
+        setStartTime(null);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [isRunning]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => clearInterval(timerRef.current);
+  }, []);
+
+  const remainingTime =
+    targetTime > 0 ? Math.max(0, targetTime - currentTime) : 0;
 
   return (
     <div
@@ -133,21 +162,16 @@ const Timer = () => {
         </div>
       </div>
 
-      {/* Timer display - centered with more space */}
       <div className="flex-1 flex flex-col justify-center">
-        <TimerDisplay time={time} targetTime={targetTime} />
+        <TimerDisplay time={currentTime} targetTime={targetTime} />
       </div>
 
-      {/* Progress text - more subtle */}
       {targetTime > 0 && (
         <div className="text-center text-sm text-gray-500 mb-6">
-          <p className="text-3xl">
-            {formatTime(Math.max(0, targetTime - time))} remaining
-          </p>
+          <p className="text-3xl">{formatTime(remainingTime)} remaining</p>
         </div>
       )}
 
-      {/* Controls - larger and full-width */}
       <TimerControls
         toggleTimer={toggleTimer}
         isRunning={isRunning}
@@ -155,7 +179,6 @@ const Timer = () => {
         sessionComplete={sessionComplete}
       />
 
-      {/* Stats panel - more integrated design */}
       <div className="mt-4 p-4 bg-white bg-opacity-80 rounded-xl shadow-inner">
         <div className="flex justify-between text-sm">
           <div className="text-center">
