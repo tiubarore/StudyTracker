@@ -37,26 +37,52 @@ const Timer = () => {
   const remainingTime =
     targetTime > 0 ? Math.max(0, targetTime - displayTime) : 0;
 
-  // Update display time and handle background execution
+  // Handle session completion
+  const handleSessionComplete = (currentTime) => {
+    const newDailyTotal = dailyTotal + currentTime;
+    const newWeeklyTotal = weeklyTotal + currentTime;
+    setDailyTotal(newDailyTotal);
+    setWeeklyTotal(newWeeklyTotal);
+    setSessionsCompleted((prev) => prev + 1);
+    setIsRunning(false);
+    setSessionComplete(true);
+  };
+
+  // Main timer effect
   useEffect(() => {
     let wakeLock;
-    let visibilityChangeHandler;
+    let visibilityHandler;
+    let lastUpdateTime = Date.now();
 
-    const updateDisplay = () => {
-      const current = getCurrentTime();
-      setDisplayTime(current);
+    const updateTimer = () => {
+      const now = Date.now();
+      const currentTime = getCurrentTime();
 
-      if (targetTime > 0 && current >= targetTime) {
-        handleSessionComplete(current);
+      // Update display at least every second, or immediately if coming from background
+      if (
+        now - lastUpdateTime >= 1000 ||
+        document.visibilityState === "visible"
+      ) {
+        setDisplayTime(currentTime);
+        lastUpdateTime = now;
+
+        // Check for session completion
+        if (targetTime > 0 && currentTime >= targetTime) {
+          handleSessionComplete(currentTime);
+        }
+      }
+
+      // Continue the animation frame loop
+      if (isRunning) {
+        timerRef.current = requestAnimationFrame(updateTimer);
       }
     };
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "hidden" && isRunning) {
-        // When going to background, store current time
-        const current = getCurrentTime();
-        setAccumulatedTime(current);
-        setStartTime(Date.now()); // Reset start time for when we come back
+      if (document.visibilityState === "visible" && isRunning) {
+        // Force immediate update when returning to app
+        lastUpdateTime = 0;
+        updateTimer();
       }
     };
 
@@ -75,39 +101,24 @@ const Timer = () => {
       requestWakeLock();
 
       // Set up visibility change handler
-      visibilityChangeHandler = handleVisibilityChange;
-      document.addEventListener("visibilitychange", visibilityChangeHandler);
+      visibilityHandler = handleVisibilityChange;
+      document.addEventListener("visibilitychange", visibilityHandler);
 
-      // Initial update
-      updateDisplay();
-
-      // Set up interval for UI updates
-      timerRef.current = setInterval(updateDisplay, 250);
+      // Start the animation frame loop
+      timerRef.current = requestAnimationFrame(updateTimer);
     }
 
     return () => {
       // Cleanup
-      clearInterval(timerRef.current);
+      if (timerRef.current) {
+        cancelAnimationFrame(timerRef.current);
+      }
       if (wakeLock) wakeLock.release();
-      if (visibilityChangeHandler) {
-        document.removeEventListener(
-          "visibilitychange",
-          visibilityChangeHandler
-        );
+      if (visibilityHandler) {
+        document.removeEventListener("visibilitychange", visibilityHandler);
       }
     };
   }, [isRunning, startTime, accumulatedTime, targetTime]);
-
-  const handleSessionComplete = (currentTime) => {
-    clearInterval(timerRef.current);
-    setIsRunning(false);
-    setSessionComplete(true);
-    const newDailyTotal = dailyTotal + currentTime;
-    const newWeeklyTotal = weeklyTotal + currentTime;
-    setDailyTotal(newDailyTotal);
-    setWeeklyTotal(newWeeklyTotal);
-    setSessionsCompleted((prev) => prev + 1);
-  };
 
   // Persist data to localStorage
   useEffect(() => {
