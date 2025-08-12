@@ -39,6 +39,12 @@ const Timer = () => {
 
   // Handle session completion
   const handleSessionComplete = (currentTime) => {
+    // First clean up any running timers
+    if (timerRef.current) {
+      cancelAnimationFrame(timerRef.current);
+    }
+
+    // Then update state
     const newDailyTotal = dailyTotal + currentTime;
     const newWeeklyTotal = weeklyTotal + currentTime;
     setDailyTotal(newDailyTotal);
@@ -46,6 +52,8 @@ const Timer = () => {
     setSessionsCompleted((prev) => prev + 1);
     setIsRunning(false);
     setSessionComplete(true);
+    setStartTime(null);
+    setAccumulatedTime(0);
   };
 
   // Main timer effect
@@ -67,12 +75,13 @@ const Timer = () => {
         lastUpdateTime = now;
 
         // Check for session completion
-        if (targetTime > 0 && currentTime >= targetTime) {
+        if (targetTime > 0 && currentTime >= targetTime && isRunning) {
           handleSessionComplete(currentTime);
+          return; // Exit the loop after completion
         }
       }
 
-      // Continue the animation frame loop
+      // Continue the animation frame loop only if still running
       if (isRunning) {
         timerRef.current = requestAnimationFrame(updateTimer);
       }
@@ -105,7 +114,7 @@ const Timer = () => {
       document.addEventListener("visibilitychange", visibilityHandler);
 
       // Start the animation frame loop
-      timerRef.current = requestAnimationFrame(updateTimer);
+      updateTimer(); // Start immediately
     }
 
     return () => {
@@ -132,6 +141,7 @@ const Timer = () => {
       // Pause logic
       setAccumulatedTime(getCurrentTime());
       setStartTime(null);
+      setIsRunning(false);
     } else {
       // Start logic
       if (sessionComplete) {
@@ -140,16 +150,20 @@ const Timer = () => {
         setSessionComplete(false);
       }
       setStartTime(Date.now());
+      setIsRunning(true);
     }
-    setIsRunning(!isRunning);
   };
 
   const resetTimer = () => {
+    if (timerRef.current) {
+      cancelAnimationFrame(timerRef.current);
+    }
     setAccumulatedTime(0);
     setDisplayTime(0);
     setStartTime(null);
     setTargetTime(0);
     setSessionComplete(false);
+    setIsRunning(false);
   };
 
   const selectPresetTime = (minutes) => {
