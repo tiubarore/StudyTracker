@@ -6,6 +6,7 @@ const Timer = () => {
   const timerRef = useRef(null);
   const [startTime, setStartTime] = useState(null);
   const [accumulatedTime, setAccumulatedTime] = useState(0);
+  const [displayTime, setDisplayTime] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const [targetTime, setTargetTime] = useState(0);
   const [sessionComplete, setSessionComplete] = useState(false);
@@ -32,7 +33,42 @@ const Timer = () => {
     return accumulatedTime + Math.floor((Date.now() - startTime) / 1000);
   };
 
-  const currentTime = getCurrentTime();
+  // Calculate remaining time
+  const remainingTime =
+    targetTime > 0 ? Math.max(0, targetTime - displayTime) : 0;
+
+  // Update display time regularly
+  useEffect(() => {
+    if (isRunning) {
+      const updateDisplay = () => {
+        const current = getCurrentTime();
+        setDisplayTime(current);
+
+        // Check for session completion
+        if (targetTime > 0 && current >= targetTime) {
+          handleSessionComplete(current);
+        }
+      };
+
+      updateDisplay();
+      timerRef.current = setInterval(updateDisplay, 250);
+
+      return () => clearInterval(timerRef.current);
+    } else {
+      setDisplayTime(accumulatedTime);
+    }
+  }, [isRunning, startTime, accumulatedTime, targetTime]);
+
+  const handleSessionComplete = (currentTime) => {
+    clearInterval(timerRef.current);
+    setIsRunning(false);
+    setSessionComplete(true);
+    const newDailyTotal = dailyTotal + currentTime;
+    const newWeeklyTotal = weeklyTotal + currentTime;
+    setDailyTotal(newDailyTotal);
+    setWeeklyTotal(newWeeklyTotal);
+    setSessionsCompleted((prev) => prev + 1);
+  };
 
   useEffect(() => {
     localStorage.setItem("dailyTotal", dailyTotal);
@@ -40,33 +76,20 @@ const Timer = () => {
     localStorage.setItem("sessionsCompleted", sessionsCompleted);
   }, [dailyTotal, weeklyTotal, sessionsCompleted]);
 
-  useEffect(() => {
-    if (targetTime > 0 && currentTime >= targetTime) {
-      clearInterval(timerRef.current);
-      setIsRunning(false);
-      setSessionComplete(true);
-      const newDailyTotal = dailyTotal + currentTime;
-      const newWeeklyTotal = weeklyTotal + currentTime;
-      setDailyTotal(newDailyTotal);
-      setWeeklyTotal(newWeeklyTotal);
-      setSessionsCompleted((prev) => prev + 1);
-    }
-  }, [currentTime, targetTime]);
-
   const toggleTimer = () => {
     if (isRunning) {
       // Pause logic
       clearInterval(timerRef.current);
-      setAccumulatedTime(currentTime);
+      setAccumulatedTime(getCurrentTime());
       setStartTime(null);
     } else {
       // Start logic
+      if (sessionComplete) {
+        setAccumulatedTime(0);
+        setDisplayTime(0);
+        setSessionComplete(false);
+      }
       setStartTime(Date.now());
-      // Secondary interval for UI updates (can be slower)
-      timerRef.current = setInterval(() => {
-        // Force re-render to update display
-        setAccumulatedTime((prev) => prev); // This triggers an update
-      }, 250);
     }
     setIsRunning(!isRunning);
   };
@@ -75,6 +98,7 @@ const Timer = () => {
     clearInterval(timerRef.current);
     setIsRunning(false);
     setAccumulatedTime(0);
+    setDisplayTime(0);
     setStartTime(null);
     setTargetTime(0);
     setSessionComplete(false);
@@ -95,7 +119,7 @@ const Timer = () => {
     }${secs}s`;
   };
 
-  // Wake Lock API to prevent sleep
+  // Wake Lock API
   useEffect(() => {
     let wakeLock;
     const requestWakeLock = async () => {
@@ -118,7 +142,9 @@ const Timer = () => {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden" && isRunning) {
-        setAccumulatedTime(getCurrentTime());
+        const current = getCurrentTime();
+        setAccumulatedTime(current);
+        setDisplayTime(current);
         setStartTime(null);
       }
     };
@@ -127,14 +153,6 @@ const Timer = () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [isRunning]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => clearInterval(timerRef.current);
-  }, []);
-
-  const remainingTime =
-    targetTime > 0 ? Math.max(0, targetTime - currentTime) : 0;
 
   return (
     <div
@@ -163,7 +181,7 @@ const Timer = () => {
       </div>
 
       <div className="flex-1 flex flex-col justify-center">
-        <TimerDisplay time={currentTime} targetTime={targetTime} />
+        <TimerDisplay time={displayTime} targetTime={targetTime} />
       </div>
 
       {targetTime > 0 && (
