@@ -5,23 +5,23 @@ const TimerControls = ({
   sessionComplete,
 }) => {
   return (
-    <div className="flex justify-center space-x-4 my-6">
+    <div className="flex space-x-4 mb-8">
       <button
         onClick={toggleTimer}
-        className={`flex-1 py-4 px-6 rounded-xl font-bold text-white ${
+        className={`flex-1 py-5 rounded-xl font-medium text-white ${
           sessionComplete
-            ? "bg-green-500 hover:bg-green-600"
+            ? "bg-green-500"
             : isRunning
-            ? "bg-yellow-500 hover:bg-yellow-600"
-            : "bg-blue-500 hover:bg-blue-600"
-        } shadow-md active:scale-95 transition-transform`}
+            ? "bg-yellow-500"
+            : "bg-blue-500"
+        } shadow-md active:opacity-80 transition-opacity`}
       >
-        {sessionComplete ? "New Session" : isRunning ? "Pause" : "Start"}
+        {sessionComplete ? "Start New" : isRunning ? "Pause" : "Start"}
       </button>
 
       <button
         onClick={resetTimer}
-        className="flex-1 py-4 px-6 rounded-xl font-bold bg-red-500 hover:bg-red-600 text-white shadow-md active:scale-95 transition-transform"
+        className="flex-1 py-5 rounded-xl font-medium bg-gray-200 text-gray-800 shadow-sm active:opacity-80 transition-opacity"
       >
         Reset
       </button>

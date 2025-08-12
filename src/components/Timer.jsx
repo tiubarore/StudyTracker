@@ -84,20 +84,21 @@ const Timer = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="mb-6">
-        <h3 className="text-lg font-medium mb-3 text-center">
-          Select Study Duration:
+    <div className="h-screen flex flex-col p-6">
+      {/* Preset buttons - now as a horizontal scroll */}
+      <div className="mb-8">
+        <h3 className="text-lg font-medium mb-3 text-gray-700">
+          Select Duration:
         </h3>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="flex space-x-3 overflow-x-auto pb-2 -mx-2 px-2">
           {presetTimes.map((preset) => (
             <button
               key={preset.minutes}
               onClick={() => selectPresetTime(preset.minutes)}
-              className={`w-full py-3 px-4 rounded-lg font-medium ${
+              className={`flex-shrink-0 py-3 px-5 rounded-xl font-medium ${
                 targetTime === preset.minutes * 60
-                  ? "bg-blue-600 text-white"
-                  : "bg-blue-100 text-blue-800"
+                  ? "bg-blue-500 text-white shadow-md"
+                  : "bg-white text-blue-600 shadow-sm"
               }`}
             >
               {preset.label}
@@ -106,15 +107,19 @@ const Timer = () => {
         </div>
       </div>
 
-      <TimerDisplay time={time} targetTime={targetTime} />
+      {/* Timer display - centered with more space */}
+      <div className="flex-1 flex flex-col justify-center">
+        <TimerDisplay time={time} targetTime={targetTime} />
+      </div>
 
+      {/* Progress text - more subtle */}
       {targetTime > 0 && (
-        <div className="text-center text-sm text-gray-600">
-          <p>Target: {formatTime(targetTime)}</p>
-          <p>Remaining: {formatTime(Math.max(0, targetTime - time))}</p>
+        <div className="text-center text-sm text-gray-500 mb-6">
+          <p>{formatTime(Math.max(0, targetTime - time))} remaining</p>
         </div>
       )}
 
+      {/* Controls - larger and full-width */}
       <TimerControls
         toggleTimer={toggleTimer}
         isRunning={isRunning}
@@ -122,21 +127,21 @@ const Timer = () => {
         sessionComplete={sessionComplete}
       />
 
-      <div className="mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
-        <h3 className="font-medium mb-3 text-center">Today's Progress</h3>
-        <div className="space-y-2">
-          <p className="flex justify-between">
-            <span className="text-gray-600">Studied:</span>
-            <span className="font-medium">{formatTime(dailyTotal)}</span>
-          </p>
-          <p className="flex justify-between">
-            <span className="text-gray-600">Sessions:</span>
-            <span className="font-medium">{sessionsCompleted}</span>
-          </p>
-          <p className="flex justify-between">
-            <span className="text-gray-600">Weekly Total:</span>
-            <span className="font-medium">{formatTime(weeklyTotal)}</span>
-          </p>
+      {/* Stats panel - more integrated design */}
+      <div className="mt-8 p-4 bg-white bg-opacity-80 rounded-xl shadow-inner">
+        <div className="flex justify-between text-sm">
+          <div className="text-center">
+            <p className="text-gray-500">Today</p>
+            <p className="font-medium">{formatTime(dailyTotal)}</p>
+          </div>
+          <div className="text-center">
+            <p className="text-gray-500">Sessions</p>
+            <p className="font-medium">{sessionsCompleted}</p>
+          </div>
+          <div className="text-center">
+            <p className="text-gray-500">Week</p>
+            <p className="font-medium">{formatTime(weeklyTotal)}</p>
+          </div>
         </div>
       </div>
     </div>
