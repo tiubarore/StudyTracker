@@ -21,7 +21,7 @@ const TimerControls = ({
         }`}
       >
         {!isPresetSelected && !isRunning
-          ? "Select Duration First"
+          ? "Select Duration"
           : sessionComplete
           ? "Start New Session"
           : isRunning
