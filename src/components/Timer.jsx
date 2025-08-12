@@ -129,7 +129,7 @@ const Timer = () => {
       />
 
       {/* Stats panel - more integrated design */}
-      <div className="mt-8 p-4 bg-white bg-opacity-80 rounded-xl shadow-inner">
+      <div className="mt-4 p-4 bg-white bg-opacity-80 rounded-xl shadow-inner">
         <div className="flex justify-between text-sm">
           <div className="text-center">
             <p className="text-gray-500">Today</p>
