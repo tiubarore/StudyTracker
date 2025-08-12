@@ -37,26 +37,65 @@ const Timer = () => {
   const remainingTime =
     targetTime > 0 ? Math.max(0, targetTime - displayTime) : 0;
 
-  // Update display time regularly
+  // Update display time and handle background execution
   useEffect(() => {
-    if (isRunning) {
-      const updateDisplay = () => {
+    let wakeLock;
+    let visibilityChangeHandler;
+
+    const updateDisplay = () => {
+      const current = getCurrentTime();
+      setDisplayTime(current);
+
+      if (targetTime > 0 && current >= targetTime) {
+        handleSessionComplete(current);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden" && isRunning) {
+        // When going to background, store current time
         const current = getCurrentTime();
-        setDisplayTime(current);
+        setAccumulatedTime(current);
+        setStartTime(Date.now()); // Reset start time for when we come back
+      }
+    };
 
-        // Check for session completion
-        if (targetTime > 0 && current >= targetTime) {
-          handleSessionComplete(current);
+    const requestWakeLock = async () => {
+      try {
+        if ("wakeLock" in navigator) {
+          wakeLock = await navigator.wakeLock.request("screen");
         }
-      };
+      } catch (err) {
+        console.error("Wake Lock error:", err);
+      }
+    };
 
+    if (isRunning) {
+      // Start wake lock
+      requestWakeLock();
+
+      // Set up visibility change handler
+      visibilityChangeHandler = handleVisibilityChange;
+      document.addEventListener("visibilitychange", visibilityChangeHandler);
+
+      // Initial update
       updateDisplay();
-      timerRef.current = setInterval(updateDisplay, 250);
 
-      return () => clearInterval(timerRef.current);
-    } else {
-      setDisplayTime(accumulatedTime);
+      // Set up interval for UI updates
+      timerRef.current = setInterval(updateDisplay, 250);
     }
+
+    return () => {
+      // Cleanup
+      clearInterval(timerRef.current);
+      if (wakeLock) wakeLock.release();
+      if (visibilityChangeHandler) {
+        document.removeEventListener(
+          "visibilitychange",
+          visibilityChangeHandler
+        );
+      }
+    };
   }, [isRunning, startTime, accumulatedTime, targetTime]);
 
   const handleSessionComplete = (currentTime) => {
@@ -70,6 +109,7 @@ const Timer = () => {
     setSessionsCompleted((prev) => prev + 1);
   };
 
+  // Persist data to localStorage
   useEffect(() => {
     localStorage.setItem("dailyTotal", dailyTotal);
     localStorage.setItem("weeklyTotal", weeklyTotal);
@@ -79,7 +119,6 @@ const Timer = () => {
   const toggleTimer = () => {
     if (isRunning) {
       // Pause logic
-      clearInterval(timerRef.current);
       setAccumulatedTime(getCurrentTime());
       setStartTime(null);
     } else {
@@ -95,14 +134,11 @@ const Timer = () => {
   };
 
   const resetTimer = () => {
-    clearInterval(timerRef.current);
-    setIsRunning(false);
     setAccumulatedTime(0);
     setDisplayTime(0);
     setStartTime(null);
     setTargetTime(0);
     setSessionComplete(false);
-    timerRef.current = null;
   };
 
   const selectPresetTime = (minutes) => {
@@ -118,41 +154,6 @@ const Timer = () => {
       mins > 0 || hrs > 0 ? `${mins}m ` : ""
     }${secs}s`;
   };
-
-  // Wake Lock API
-  useEffect(() => {
-    let wakeLock;
-    const requestWakeLock = async () => {
-      try {
-        if ("wakeLock" in navigator) {
-          wakeLock = await navigator.wakeLock.request("screen");
-        }
-      } catch (err) {
-        console.error("Wake Lock error:", err);
-      }
-    };
-
-    if (isRunning) requestWakeLock();
-    return () => {
-      if (wakeLock) wakeLock.release();
-    };
-  }, [isRunning]);
-
-  // Handle tab visibility changes
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "hidden" && isRunning) {
-        const current = getCurrentTime();
-        setAccumulatedTime(current);
-        setDisplayTime(current);
-        setStartTime(null);
-      }
-    };
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [isRunning]);
 
   return (
     <div
