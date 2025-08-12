@@ -114,7 +114,9 @@ const Timer = () => {
       {/* Progress text - more subtle */}
       {targetTime > 0 && (
         <div className="text-center text-sm text-gray-500 mb-6">
-          <p>{formatTime(Math.max(0, targetTime - time))} remaining</p>
+          <p className="text-3xl">
+            {formatTime(Math.max(0, targetTime - time))} remaining
+          </p>
         </div>
       )}
 
