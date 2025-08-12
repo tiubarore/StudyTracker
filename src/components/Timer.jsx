@@ -85,20 +85,19 @@ const Timer = () => {
 
   return (
     <div className="h-screen flex flex-col p-6">
-      {/* Preset buttons - now as a horizontal scroll */}
       <div className="mb-8">
-        <h3 className="text-lg font-medium mb-3 text-gray-700">
-          Select Duration:
+        <h3 className="text-lg font-medium mb-3 my-5 text-gray-700 text-center">
+          Study Duration
         </h3>
-        <div className="flex space-x-3 overflow-x-auto pb-2 -mx-2 px-2">
+        <div className="grid grid-cols-2 gap-3">
           {presetTimes.map((preset) => (
             <button
               key={preset.minutes}
               onClick={() => selectPresetTime(preset.minutes)}
-              className={`flex-shrink-0 py-3 px-5 rounded-xl font-medium ${
+              className={`py-3 rounded-xl font-medium transition-all ${
                 targetTime === preset.minutes * 60
-                  ? "bg-blue-500 text-white shadow-md"
-                  : "bg-white text-blue-600 shadow-sm"
+                  ? "bg-blue-500 text-white shadow-md scale-[0.98]"
+                  : "bg-white text-blue-600 border border-gray-200 active:scale-[0.98]"
               }`}
             >
               {preset.label}
