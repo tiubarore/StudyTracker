@@ -86,7 +86,7 @@ const Timer = () => {
   return (
     <div className="h-screen flex flex-col p-6">
       <div className="mb-8">
-        <h3 className="text-lg font-medium mb-3 my-5 text-gray-700 text-center">
+        <h3 className="text-lg font-medium mb-3 text-gray-700 text-center">
           Study Duration
         </h3>
         <div className="grid grid-cols-2 gap-3">
