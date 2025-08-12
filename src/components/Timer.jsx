@@ -1,9 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import TimerDisplay from "./TimerDisplay";
 import TimerControls from "./TimerControls";
+import Stats from "./Stats";
+import Preset from "./Preset";
 
 const Timer = () => {
   const timerRef = useRef(null);
+  const [isPresetSelected, setIsPresetSelected] = useState(false);
   const [startTime, setStartTime] = useState(null);
   const [accumulatedTime, setAccumulatedTime] = useState(0);
   const [displayTime, setDisplayTime] = useState(0);
@@ -19,6 +22,12 @@ const Timer = () => {
   const [sessionsCompleted, setSessionsCompleted] = useState(() => {
     return Number(localStorage.getItem("sessionsCompleted") || 0);
   });
+
+  const selectPresetTime = (minutes) => {
+    resetTimer();
+    setTargetTime(minutes * 60);
+    setIsPresetSelected(true); // Set to true when preset is selected
+  };
 
   const presetTimes = [
     { minutes: 15, label: "15 min" },
@@ -137,6 +146,7 @@ const Timer = () => {
   }, [dailyTotal, weeklyTotal, sessionsCompleted]);
 
   const toggleTimer = () => {
+    if (!isPresetSelected && !isRunning) return;
     if (isRunning) {
       // Pause logic
       setAccumulatedTime(getCurrentTime());
@@ -151,6 +161,7 @@ const Timer = () => {
       }
       setStartTime(Date.now());
       setIsRunning(true);
+      setIsRunning(!isRunning);
     }
   };
 
@@ -164,11 +175,7 @@ const Timer = () => {
     setTargetTime(0);
     setSessionComplete(false);
     setIsRunning(false);
-  };
-
-  const selectPresetTime = (minutes) => {
-    resetTimer();
-    setTargetTime(minutes * 60);
+    setIsPresetSelected(false); // Reset on full timer reset
   };
 
   const formatTime = (seconds) => {
@@ -188,63 +195,45 @@ const Timer = () => {
 
   return (
     <div
-      className="flex flex-col p-6 overflow-y-auto"
+      className="flex flex-col p-6 overflow-y-auto lg:mx-auto md:max-w-2xl lg:max-w-4xl"
       style={{ height: "calc(var(--app-height, 100vh) - 1px)" }}
     >
       <div className="mb-8">
         <h3 className="text-lg font-medium mb-3 text-gray-700 text-center">
-          Study Duration
+          Choose your Time
         </h3>
         <div className="grid grid-cols-2 gap-3">
           {presetTimes.map((preset) => (
-            <button
+            <Preset
               key={preset.minutes}
-              onClick={() => selectPresetTime(preset.minutes)}
-              className={`py-3 rounded-xl font-medium transition-all ${
-                targetTime === preset.minutes * 60
-                  ? "bg-blue-500 text-white shadow-md scale-[0.98]"
-                  : "bg-white text-blue-600 border border-gray-200 active:scale-[0.98]"
-              }`}
-            >
-              {preset.label}
-            </button>
+              preset={preset}
+              selectPresetTime={selectPresetTime}
+              targetTime={targetTime}
+            />
           ))}
         </div>
       </div>
-
       <div className="flex-1 flex flex-col justify-center">
         <TimerDisplay time={displayTime} targetTime={targetTime} />
       </div>
-
       {targetTime > 0 && (
         <div className="text-center text-sm text-gray-500 mb-6">
           <p className="text-3xl">{formatTime(remainingTime)} remaining</p>
         </div>
       )}
-
       <TimerControls
+        isPresetSelected={isPresetSelected}
         toggleTimer={toggleTimer}
         isRunning={isRunning}
         resetTimer={resetTimer}
         sessionComplete={sessionComplete}
       />
-
-      <div className="mt-4 p-4 bg-white bg-opacity-80 rounded-xl shadow-inner">
-        <div className="flex justify-around text-sm">
-          <div className="text-center">
-            <p className="text-gray-500">Today</p>
-            <p className="font-medium">{formatTimeForTotals(dailyTotal)}</p>
-          </div>
-          {/* <div className="text-center">
-            <p className="text-gray-500">Sessions</p>
-            <p className="font-medium">{sessionsCompleted}</p>
-          </div> */}
-          <div className="text-center">
-            <p className="text-gray-500">Week</p>
-            <p className="font-medium">{formatTimeForTotals(weeklyTotal)}</p>
-          </div>
-        </div>
-      </div>
+      {/* stats */}
+      <Stats
+        formatTimeForTotals={formatTimeForTotals}
+        dailyTotal={dailyTotal}
+        weeklyTotal={weeklyTotal}
+      />
     </div>
   );
 };

@@ -1,4 +1,5 @@
 const TimerControls = ({
+  isPresetSelected,
   toggleTimer,
   isRunning,
   resetTimer,
@@ -8,15 +9,24 @@ const TimerControls = ({
     <div className="flex space-x-4 mb-8">
       <button
         onClick={toggleTimer}
-        className={`flex-1 py-5 rounded-xl font-medium text-white ${
-          sessionComplete
-            ? "bg-green-500"
+        disabled={!isPresetSelected && !isRunning} // Disable if no preset selected
+        className={`flex-1 py-4 rounded-xl font-medium text-white ${
+          !isPresetSelected && !isRunning
+            ? "bg-gray-400 cursor-not-allowed" // Disabled state
+            : sessionComplete
+            ? "bg-green-500 hover:bg-green-600"
             : isRunning
-            ? "bg-yellow-500"
-            : "bg-blue-500"
-        } shadow-md active:opacity-80 transition-opacity`}
+            ? "bg-yellow-500 hover:bg-yellow-600"
+            : "bg-blue-500 hover:bg-blue-600"
+        }`}
       >
-        {sessionComplete ? "Start New" : isRunning ? "Pause" : "Start"}
+        {!isPresetSelected && !isRunning
+          ? "Select Duration First"
+          : sessionComplete
+          ? "Start New Session"
+          : isRunning
+          ? "Pause"
+          : "Start"}
       </button>
 
       <button
