@@ -83,6 +83,30 @@ const Timer = () => {
     }${secs}s`;
   };
 
+  // Add to Timer.jsx
+  useEffect(() => {
+    let wakeLock = null;
+
+    const requestWakeLock = async () => {
+      try {
+        if ("wakeLock" in navigator) {
+          wakeLock = await navigator.wakeLock.request("screen");
+          console.log("Wake Lock active");
+        }
+      } catch (err) {
+        console.log("Wake Lock error:", err);
+      }
+    };
+
+    if (isRunning) {
+      requestWakeLock();
+    }
+
+    return () => {
+      if (wakeLock) wakeLock.release();
+    };
+  }, [isRunning]);
+
   return (
     <div
       className="flex flex-col p-6 overflow-y-auto"
