@@ -1,12 +1,83 @@
-# React + Vite
+# ⏱️ Time Your Study
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A progressive web app (PWA) that helps you track focused study sessions with preset timers and progress analytics.
 
-Currently, two official plugins are available:
+![App Screenshot](/public/studyTracker.PNG)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## ✨ Features
 
-## Expanding the ESLint configuration
+- 🎯 **Preset study durations**: 15min, 30min, 45min, or 1hr sessions
+- ⏳ **Live progress tracking**: Visual timer with progress bar
+- 📊 **Study analytics**:
+  - Daily/Weekly study time tracking
+  - Sessions completed counter
+- 📲 **Mobile-optimized PWA**:
+  - Installable on home screen
+  - Works offline
+  - Touch-friendly controls
+- 🔄 **Data persistence**: Saves progress between sessions
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## 🚀 How to Use
+
+1. **Select duration**:
+   - Tap your desired study time (15min/30min/45min/1hr)
+2. **Start studying**:
+
+   - Press ▶️ Start button
+   - Timer counts up toward your goal
+   - Progress bar shows completion
+
+3. **Session complete**:
+
+   - Timer stops automatically
+   - Stats update immediately
+   - Tap "New Session" to continue
+
+4. **View progress**:
+   - See today's total study time
+   - Track weekly progress
+   - Monitor completed sessions
+
+## 🛠️ Development Setup
+
+```bash
+# Clone repository
+git clone [https://github.com/tiubarore/StudyTracker]
+
+# Install dependencies
+npm install
+
+# Run development server
+npm run dev
+
+# Build for production
+npm run build
+```
+
+## 🌐 PWA Installation
+
+Visit the app in Chrome/Edge on mobile
+
+Tap "Add to Home Screen" when prompted
+
+Launches like a native app
+
+## 📦 Tech Stack
+
+React + Vite
+
+Tailwind CSS
+
+PWA-capable
+
+LocalStorage API
+
+## 📝 Todo Roadmap
+
+Custom timer input
+
+Session history calendar
+
+Achievement badges
+
+Cross-device sync
