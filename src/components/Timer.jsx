@@ -1,8 +1,15 @@
+import { openDB } from "idb";
 import { useState, useRef, useEffect } from "react";
 import TimerDisplay from "./TimerDisplay";
 import TimerControls from "./TimerControls";
 import Stats from "./Stats";
 import Preset from "./Preset";
+
+const dbPromise = openDB("timer-store", 1, {
+  upgrade(db) {
+    db.createObjectStore("timer");
+  },
+});
 
 const Timer = () => {
   const timerRef = useRef(null);
@@ -22,6 +29,33 @@ const Timer = () => {
   const [sessionsCompleted, setSessionsCompleted] = useState(() => {
     return Number(localStorage.getItem("sessionsCompleted") || 0);
   });
+
+  // Add this useEffect near the beginning of your component (after state declarations)
+  useEffect(() => {
+    const loadState = async () => {
+      try {
+        const saved = await (await dbPromise).get("timer", "current-state");
+        if (saved) {
+          if (saved.isRunning) {
+            // Calculate elapsed time while app was closed
+            const elapsed = Math.floor((Date.now() - saved.startTime) / 1000);
+            setAccumulatedTime(saved.accumulatedTime + elapsed);
+            setDisplayTime(saved.displayTime + elapsed);
+            setStartTime(Date.now());
+            setIsRunning(true);
+          }
+          // Restore other states
+          setTargetTime(saved.targetTime);
+          setSessionComplete(saved.sessionComplete);
+          setIsPresetSelected(saved.targetTime > 0);
+        }
+      } catch (error) {
+        console.error("Failed to load timer state:", error);
+      }
+    };
+
+    loadState();
+  }, []);
 
   const selectPresetTime = (minutes) => {
     resetTimer();
@@ -70,12 +104,15 @@ const Timer = () => {
     let wakeLock;
     let visibilityHandler;
     let lastUpdateTime = Date.now();
+    let wakeLockRetryTimer;
+    let isActive = true;
 
     const updateTimer = () => {
+      if (!isActive) return;
+
       const now = Date.now();
       const currentTime = getCurrentTime();
 
-      // Update display at least every second, or immediately if coming from background
       if (
         now - lastUpdateTime >= 1000 ||
         document.visibilityState === "visible"
@@ -83,24 +120,27 @@ const Timer = () => {
         setDisplayTime(currentTime);
         lastUpdateTime = now;
 
-        // Check for session completion
         if (targetTime > 0 && currentTime >= targetTime && isRunning) {
           handleSessionComplete(currentTime);
-          return; // Exit the loop after completion
+          return;
         }
       }
 
-      // Continue the animation frame loop only if still running
       if (isRunning) {
         timerRef.current = requestAnimationFrame(updateTimer);
       }
     };
 
     const handleVisibilityChange = () => {
+      if (!isActive) return;
+
       if (document.visibilityState === "visible" && isRunning) {
-        // Force immediate update when returning to app
         lastUpdateTime = 0;
         updateTimer();
+        reacquireWakeLock(); // Reacquire when coming back to foreground
+      } else if (document.visibilityState === "hidden") {
+        // Save state when going to background
+        backupTimerState();
       }
     };
 
@@ -108,42 +148,114 @@ const Timer = () => {
       try {
         if ("wakeLock" in navigator) {
           wakeLock = await navigator.wakeLock.request("screen");
+          wakeLock.addEventListener("release", () => {
+            if (isRunning && isActive) {
+              // Schedule retry if released unexpectedly
+              wakeLockRetryTimer = setTimeout(requestWakeLock, 1000);
+            }
+          });
         }
       } catch (err) {
         console.error("Wake Lock error:", err);
+        // Retry on failure
+        if (isRunning && isActive) {
+          wakeLockRetryTimer = setTimeout(requestWakeLock, 2000);
+        }
+      }
+    };
+
+    const reacquireWakeLock = () => {
+      if (wakeLockRetryTimer) {
+        clearTimeout(wakeLockRetryTimer);
+      }
+      requestWakeLock();
+    };
+
+    const backupTimerState = async () => {
+      try {
+        await (
+          await dbPromise
+        ).put(
+          "timer",
+          {
+            startTime,
+            accumulatedTime: getCurrentTime(),
+            targetTime,
+            isRunning,
+            savedAt: Date.now(),
+          },
+          "current-state"
+        );
+      } catch (error) {
+        console.error("Backup failed:", error);
       }
     };
 
     if (isRunning) {
-      // Start wake lock
       requestWakeLock();
-
-      // Set up visibility change handler
       visibilityHandler = handleVisibilityChange;
       document.addEventListener("visibilitychange", visibilityHandler);
-
-      // Start the animation frame loop
-      updateTimer(); // Start immediately
+      updateTimer();
     }
 
     return () => {
-      // Cleanup
+      isActive = false;
+
       if (timerRef.current) {
         cancelAnimationFrame(timerRef.current);
       }
-      if (wakeLock) wakeLock.release();
+      if (wakeLock) {
+        wakeLock.removeEventListener("release", requestWakeLock);
+        wakeLock.release().catch(console.error);
+      }
+      if (wakeLockRetryTimer) {
+        clearTimeout(wakeLockRetryTimer);
+      }
       if (visibilityHandler) {
         document.removeEventListener("visibilitychange", visibilityHandler);
       }
     };
   }, [isRunning, startTime, accumulatedTime, targetTime]);
-
   // Persist data to localStorage
   useEffect(() => {
     localStorage.setItem("dailyTotal", dailyTotal);
     localStorage.setItem("weeklyTotal", weeklyTotal);
     localStorage.setItem("sessionsCompleted", sessionsCompleted);
   }, [dailyTotal, weeklyTotal, sessionsCompleted]);
+
+  // Add this useEffect with your other effects
+  useEffect(() => {
+    const saveTimerState = async () => {
+      await (
+        await dbPromise
+      ).put(
+        "timer",
+        {
+          startTime,
+          accumulatedTime,
+          targetTime,
+          isRunning,
+          sessionComplete,
+          displayTime,
+        },
+        "current-state"
+      );
+    };
+
+    // Save every 30 seconds when running
+    const interval = setInterval(() => {
+      if (isRunning) saveTimerState();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [
+    startTime,
+    accumulatedTime,
+    targetTime,
+    isRunning,
+    sessionComplete,
+    displayTime,
+  ]);
 
   const toggleTimer = () => {
     if (!isPresetSelected && !isRunning) return;
