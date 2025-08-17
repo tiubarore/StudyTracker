@@ -35,43 +35,30 @@ const Timer = () => {
         const lastDate = localStorage.getItem("lastSavedDate");
         const saved = await (await dbPromise).get("timer", "current-state");
 
-        // Always check date first
+        // Reset everything if it's a new day
         if (lastDate !== today) {
-          // New day - reset everything
           setDailyTotal(0);
           localStorage.setItem("dailyTotal", 0);
           localStorage.setItem("lastSavedDate", today);
-
-          // Clear any running timer from previous day
-          if (saved?.isRunning) {
-            await (
-              await dbPromise
-            ).put(
-              "timer",
-              {
-                ...saved,
-                isRunning: false, // Force stop old timer
-              },
-              "current-state"
-            );
-          }
+          await (await dbPromise).put("timer", null, "current-state"); // Clear saved state
           return;
         }
 
-        // Only restore if same day
+        // Only restore non-timer states if same day
         if (saved) {
-          if (saved.isRunning) {
-            const elapsed = Math.floor((Date.now() - saved.startTime) / 1000);
-            setAccumulatedTime(saved.accumulatedTime);
-            setDisplayTime(saved.displayTime + elapsed);
-            setStartTime(Date.now());
-            setIsRunning(true);
-          }
           setTargetTime(saved.targetTime);
           setSessionComplete(saved.sessionComplete);
           setIsPresetSelected(saved.targetTime > 0);
 
-          // Restore daily total from localStorage
+          // Important: Don't auto-restore running state
+          if (saved.isRunning) {
+            // Reset the timer but keep target
+            setAccumulatedTime(0);
+            setDisplayTime(0);
+            setStartTime(null);
+            setIsRunning(false);
+          }
+
           setDailyTotal(Number(localStorage.getItem("dailyTotal") || 0));
         }
       } catch (error) {
@@ -214,19 +201,16 @@ const Timer = () => {
 
     const backupTimerState = async () => {
       try {
-        const today = new Date().toDateString();
         await (
           await dbPromise
         ).put(
           "timer",
           {
-            startTime,
-            accumulatedTime: getCurrentTime(),
+            // Never save as running - force user to manually restart
+            isRunning: false,
             targetTime,
-            isRunning,
             sessionComplete,
-            displayTime,
-            savedDate: today, // Critical: Track which day this state belongs to
+            // Save other non-timer states...
           },
           "current-state"
         );
@@ -304,17 +288,17 @@ const Timer = () => {
 
   const toggleTimer = () => {
     if (!isPresetSelected && !isRunning) return;
+
     if (isRunning) {
       // Pause logic
       setAccumulatedTime(getCurrentTime());
       setStartTime(null);
       setIsRunning(false);
     } else {
-      // Start logic
-      if (sessionComplete) {
+      // Start logic - always reset if starting fresh
+      if (sessionComplete || !isRunning) {
         setAccumulatedTime(0);
         setDisplayTime(0);
-        setSessionComplete(false);
       }
       setStartTime(Date.now());
       setIsRunning(true);
