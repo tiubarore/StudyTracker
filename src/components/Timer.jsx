@@ -29,8 +29,10 @@ const Timer = () => {
   const [sessionsCompleted, setSessionsCompleted] = useState(() => {
     return Number(localStorage.getItem("sessionsCompleted") || 0);
   });
+  const [lastSavedDate, setLastSavedDate] = useState(() => {
+    return localStorage.getItem("lastSavedDate") || new Date().toDateString();
+  });
 
-  // Add this useEffect near the beginning of your component (after state declarations)
   useEffect(() => {
     const loadState = async () => {
       try {
@@ -56,6 +58,26 @@ const Timer = () => {
 
     loadState();
   }, []);
+
+  // check daily reset
+  useEffect(() => {
+    const checkDailyReset = () => {
+      const today = new Date().toDateString();
+      if (lastSavedDate !== today) {
+        setDailyTotal(0);
+        setLastSavedDate(today);
+        localStorage.setItem("lastSavedDate", today);
+        localStorage.setItem("dailyTotal", 0);
+      }
+    };
+
+    // Check every minute
+    const timer = setTimeout(() => {
+      checkDailyReset();
+    }, 60000);
+
+    return () => clearTimeout(timer);
+  }, [lastSavedDate]);
 
   const selectPresetTime = (minutes) => {
     resetTimer();
@@ -216,6 +238,7 @@ const Timer = () => {
       }
     };
   }, [isRunning, startTime, accumulatedTime, targetTime]);
+
   // Persist data to localStorage
   useEffect(() => {
     localStorage.setItem("dailyTotal", dailyTotal);
