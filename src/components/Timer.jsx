@@ -29,24 +29,32 @@ const Timer = () => {
   const [sessionsCompleted, setSessionsCompleted] = useState(() => {
     return Number(localStorage.getItem("sessionsCompleted") || 0);
   });
-  const [lastSavedDate, setLastSavedDate] = useState(() => {
-    return localStorage.getItem("lastSavedDate") || new Date().toDateString();
-  });
 
   useEffect(() => {
     const loadState = async () => {
       try {
+        const today = new Date().toDateString();
+        const lastDate = localStorage.getItem("lastSavedDate");
+
+        // Reset daily total if it's a new day
+        if (lastDate !== today) {
+          setDailyTotal(0);
+          localStorage.setItem("dailyTotal", 0);
+          localStorage.setItem("lastSavedDate", today);
+        }
+
         const saved = await (await dbPromise).get("timer", "current-state");
         if (saved) {
-          if (saved.isRunning) {
-            // Calculate elapsed time while app was closed
+          // Only restore running timer if same day
+          if (saved.isRunning && lastDate === today) {
             const elapsed = Math.floor((Date.now() - saved.startTime) / 1000);
             setAccumulatedTime(saved.accumulatedTime + elapsed);
             setDisplayTime(saved.displayTime + elapsed);
             setStartTime(Date.now());
             setIsRunning(true);
           }
-          // Restore other states
+
+          // Always restore these
           setTargetTime(saved.targetTime);
           setSessionComplete(saved.sessionComplete);
           setIsPresetSelected(saved.targetTime > 0);
@@ -61,23 +69,19 @@ const Timer = () => {
 
   // check daily reset
   useEffect(() => {
-    const checkDailyReset = () => {
-      const today = new Date().toDateString();
-      if (lastSavedDate !== today) {
-        setDailyTotal(0);
-        setLastSavedDate(today);
-        localStorage.setItem("lastSavedDate", today);
-        localStorage.setItem("dailyTotal", 0);
-      }
-    };
+    const today = new Date().toDateString();
+    const lastDate = localStorage.getItem("lastSavedDate");
 
-    // Check every minute
-    const timer = setTimeout(() => {
-      checkDailyReset();
-    }, 60000);
-
-    return () => clearTimeout(timer);
-  }, [lastSavedDate]);
+    if (!lastDate) {
+      // First run - initialize date
+      localStorage.setItem("lastSavedDate", today);
+    } else if (lastDate !== today) {
+      // New day - reset daily total
+      setDailyTotal(0);
+      localStorage.setItem("dailyTotal", 0);
+      localStorage.setItem("lastSavedDate", today);
+    }
+  }, []);
 
   const selectPresetTime = (minutes) => {
     resetTimer();
@@ -296,7 +300,6 @@ const Timer = () => {
       }
       setStartTime(Date.now());
       setIsRunning(true);
-      setIsRunning(!isRunning);
     }
   };
 
