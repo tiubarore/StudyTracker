@@ -28,24 +28,60 @@ const Timer = () => {
     return Number(localStorage.getItem("sessionsCompleted") || 0);
   });
 
+  // Helper function to get current date string
+  const getCurrentDateString = () => new Date().toDateString();
+
+  // Helper function to get current week string (year + week number)
+  const getCurrentWeekString = () => {
+    const now = new Date();
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const days = Math.floor((now - startOfYear) / (24 * 60 * 60 * 1000));
+    const week = Math.ceil((days + startOfYear.getDay() + 1) / 7);
+    return `${now.getFullYear()}-W${week}`;
+  };
+
   useEffect(() => {
     const loadState = async () => {
       try {
-        const today = new Date().toDateString();
-        const lastDate = localStorage.getItem("lastSavedDate");
+        const today = getCurrentDateString();
+        const currentWeek = getCurrentWeekString();
+        const lastSavedDate = localStorage.getItem("lastSavedDate");
+        const lastSavedWeek = localStorage.getItem("lastSavedWeek");
         const saved = await (await dbPromise).get("timer", "current-state");
 
-        // Reset everything if it's a new day
-        if (lastDate !== today) {
+        // Check if we need to reset daily totals
+        if (lastSavedDate !== today) {
+          console.log("New day detected, resetting daily total");
           setDailyTotal(0);
-          localStorage.setItem("dailyTotal", 0);
+          localStorage.setItem("dailyTotal", "0");
           localStorage.setItem("lastSavedDate", today);
           await (await dbPromise).put("timer", null, "current-state"); // Clear saved state
-          return;
+        } else {
+          // Same day, restore daily total
+          setDailyTotal(Number(localStorage.getItem("dailyTotal") || 0));
+        }
+
+        // Check if we need to reset weekly totals
+        if (lastSavedWeek !== currentWeek) {
+          console.log("New week detected, resetting weekly total");
+          setWeeklyTotal(0);
+          localStorage.setItem("weeklyTotal", "0");
+          localStorage.setItem("lastSavedWeek", currentWeek);
+        } else {
+          // Same week, restore weekly total
+          setWeeklyTotal(Number(localStorage.getItem("weeklyTotal") || 0));
+        }
+
+        // Initialize date and week if not set
+        if (!lastSavedDate) {
+          localStorage.setItem("lastSavedDate", today);
+        }
+        if (!lastSavedWeek) {
+          localStorage.setItem("lastSavedWeek", currentWeek);
         }
 
         // Only restore non-timer states if same day
-        if (saved) {
+        if (saved && lastSavedDate === today) {
           setTargetTime(saved.targetTime);
           setSessionComplete(saved.sessionComplete);
           setIsPresetSelected(saved.targetTime > 0);
@@ -58,8 +94,6 @@ const Timer = () => {
             setStartTime(null);
             setIsRunning(false);
           }
-
-          setDailyTotal(Number(localStorage.getItem("dailyTotal") || 0));
         }
       } catch (error) {
         console.error("Failed to load timer state:", error);
@@ -67,22 +101,6 @@ const Timer = () => {
     };
 
     loadState();
-  }, []);
-
-  // check daily reset
-  useEffect(() => {
-    const today = new Date().toDateString();
-    const lastDate = localStorage.getItem("lastSavedDate");
-
-    if (!lastDate) {
-      // First run - initialize date
-      localStorage.setItem("lastSavedDate", today);
-    } else if (lastDate !== today) {
-      // New day - reset daily total
-      setDailyTotal(0);
-      localStorage.setItem("dailyTotal", 0);
-      localStorage.setItem("lastSavedDate", today);
-    }
   }, []);
 
   const selectPresetTime = (minutes) => {
@@ -247,9 +265,9 @@ const Timer = () => {
 
   // Persist data to localStorage
   useEffect(() => {
-    localStorage.setItem("dailyTotal", dailyTotal);
-    localStorage.setItem("weeklyTotal", weeklyTotal);
-    localStorage.setItem("sessionsCompleted", sessionsCompleted);
+    localStorage.setItem("dailyTotal", dailyTotal.toString());
+    localStorage.setItem("weeklyTotal", weeklyTotal.toString());
+    localStorage.setItem("sessionsCompleted", sessionsCompleted.toString());
   }, [dailyTotal, weeklyTotal, sessionsCompleted]);
 
   // Add this useEffect with your other effects
