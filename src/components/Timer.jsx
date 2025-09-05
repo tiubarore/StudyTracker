@@ -27,9 +27,23 @@ const Timer = () => {
   const [sessionsCompleted, setSessionsCompleted] = useState(() => {
     return Number(localStorage.getItem("sessionsCompleted") || 0);
   });
+  const [debugInfo, setDebugInfo] = useState([]);
+  const [showDebug, setShowDebug] = useState(false);
 
-  // Helper function to get current date string
-  const getCurrentDateString = () => new Date().toDateString();
+  // Helper function to add debug messages
+  const addDebugInfo = (message) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setDebugInfo((prev) => [...prev.slice(-4), `${timestamp}: ${message}`]);
+  };
+
+  // Helper function to get current date string (using local timezone)
+  const getCurrentDateString = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
 
   // Helper function to get current week string (year + week number)
   const getCurrentWeekString = () => {
@@ -49,42 +63,54 @@ const Timer = () => {
         const lastSavedWeek = localStorage.getItem("lastSavedWeek");
         const saved = await (await dbPromise).get("timer", "current-state");
 
+        addDebugInfo(`Date check: ${today} vs ${lastSavedDate}`);
+        addDebugInfo(`Week check: ${currentWeek} vs ${lastSavedWeek}`);
+
+        // Initialize date and week if not set (first time use)
+        if (!lastSavedDate) {
+          addDebugInfo("First time use, initializing");
+          localStorage.setItem("lastSavedDate", today);
+          localStorage.setItem("lastSavedWeek", currentWeek);
+          setDailyTotal(0);
+          setWeeklyTotal(0);
+          localStorage.setItem("dailyTotal", "0");
+          localStorage.setItem("weeklyTotal", "0");
+          return;
+        }
+
         // Check if we need to reset daily totals
         if (lastSavedDate !== today) {
-          console.log("New day detected, resetting daily total");
+          addDebugInfo("NEW DAY - Resetting daily total");
           setDailyTotal(0);
           localStorage.setItem("dailyTotal", "0");
           localStorage.setItem("lastSavedDate", today);
           await (await dbPromise).put("timer", null, "current-state"); // Clear saved state
         } else {
           // Same day, restore daily total
-          setDailyTotal(Number(localStorage.getItem("dailyTotal") || 0));
+          const storedDaily = Number(localStorage.getItem("dailyTotal") || 0);
+          addDebugInfo(`Same day, restoring daily: ${storedDaily}s`);
+          setDailyTotal(storedDaily);
         }
 
         // Check if we need to reset weekly totals
         if (lastSavedWeek !== currentWeek) {
-          console.log("New week detected, resetting weekly total");
+          addDebugInfo("NEW WEEK - Resetting weekly total");
           setWeeklyTotal(0);
           localStorage.setItem("weeklyTotal", "0");
           localStorage.setItem("lastSavedWeek", currentWeek);
         } else {
           // Same week, restore weekly total
-          setWeeklyTotal(Number(localStorage.getItem("weeklyTotal") || 0));
+          const storedWeekly = Number(localStorage.getItem("weeklyTotal") || 0);
+          addDebugInfo(`Same week, restoring weekly: ${storedWeekly}s`);
+          setWeeklyTotal(storedWeekly);
         }
 
-        // Initialize date and week if not set
-        if (!lastSavedDate) {
-          localStorage.setItem("lastSavedDate", today);
-        }
-        if (!lastSavedWeek) {
-          localStorage.setItem("lastSavedWeek", currentWeek);
-        }
-
-        // Only restore non-timer states if same day
+        // Only restore non-timer states if same day and saved data exists
         if (saved && lastSavedDate === today) {
-          setTargetTime(saved.targetTime);
-          setSessionComplete(saved.sessionComplete);
-          setIsPresetSelected(saved.targetTime > 0);
+          addDebugInfo("Restoring saved timer state");
+          setTargetTime(saved.targetTime || 0);
+          setSessionComplete(saved.sessionComplete || false);
+          setIsPresetSelected((saved.targetTime || 0) > 0);
 
           // Important: Don't auto-restore running state
           if (saved.isRunning) {
@@ -96,7 +122,7 @@ const Timer = () => {
           }
         }
       } catch (error) {
-        console.error("Failed to load timer state:", error);
+        addDebugInfo(`ERROR: ${error.message}`);
       }
     };
 
@@ -136,6 +162,7 @@ const Timer = () => {
     // Then update state
     const newDailyTotal = dailyTotal + currentTime;
     const newWeeklyTotal = weeklyTotal + currentTime;
+    addDebugInfo(`Session complete: +${currentTime}s to totals`);
     setDailyTotal(newDailyTotal);
     setWeeklyTotal(newWeeklyTotal);
     setSessionsCompleted((prev) => prev + 1);
@@ -357,9 +384,33 @@ const Timer = () => {
       style={{ height: "calc(var(--app-height, 100vh) - 1px)" }}
     >
       <div className="mb-8">
-        <h3 className="text-lg font-medium mb-3 text-gray-700 text-center">
-          Choose your Time
-        </h3>
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-lg font-medium text-gray-700 text-center flex-1">
+            Choose your Time
+          </h3>
+          <button
+            onClick={() => setShowDebug(!showDebug)}
+            className="text-xs bg-gray-200 px-2 py-1 rounded text-gray-600"
+          >
+            Debug
+          </button>
+        </div>
+
+        {showDebug && (
+          <div className="mb-4 p-3 bg-yellow-50 rounded-lg border text-xs">
+            <p className="font-semibold mb-2">Debug Info:</p>
+            {debugInfo.length === 0 ? (
+              <p className="text-gray-500">No debug messages yet</p>
+            ) : (
+              debugInfo.map((msg, i) => (
+                <p key={i} className="text-gray-700 mb-1">
+                  {msg}
+                </p>
+              ))
+            )}
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-3">
           {presetTimes.map((preset) => (
             <Preset
